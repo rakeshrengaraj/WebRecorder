@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Web Recorder</title>
+  <link rel="stylesheet" href="./web-recorder-style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+
+  <style>
+    .flex-container {
+      padding: 0;
+      margin: 0;
+      list-style: none;
+      display: flex;
+    }
+
+    .center {
+      justify-content: center;
+      align-items: center;
+    }
+
+    .flex-item button {
+      padding: 5px;
+      width: 80px;
+      height: 50px;
+      margin: 5px;
+      text-align: center;
+      border-radius: 15px;
+    }
+
+    audio {
+      width: 500px;
+      height: 50px;
+    }
+
+    button:focus {
+      outline: 0 !important;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Web Recorder</h1>
+  </header>
+
+
+
+  <main id="flex_embed_media">
+    <ul class="controls flex-container center">
+      <li class="flex-item">
+        <button type="button" id="mic">Allow Mic</button>
+      </li>
+      <li class="flex-item">
+        <button type="button" id="record" disabled>Record</button>
+      </li>
+      <li class="flex-item">
+        <button type="button" id="playpause" disabled>Pause</button>
+      </li>
+      <li class="flex-item">
+        <button type="button" id="attach" disabled>Attach</button>
+      </li>
+      <li class="flex-item">
+        <button type="button" id="reset" disabled>Reset</button>
+      </li>
+    </ul>
+
+    <br>
+    <div class="flex-container timer center">
+      <span id="mintimer">00</span>&nbsp;:&nbsp;<span id="sectimer">00</span>
+    </div>
+    <br>
+
+    <div class="controls flex-container center">
+      <audio id="audio" controls controlslist="nodownload"></audio>
+    </div>
+  </main>
+
+
+  <script>
+
+    var attachButton = document.getElementById('attach');
+    var getMic = document.getElementById('mic');
+    var audio = document.getElementById('audio');
+
+    var recordButton = document.getElementById('record');
+    var stopButton = document.getElementById('stop');
+    var playPauseButton = document.getElementById('playpause');
+    var resetButton = document.getElementById('reset');
+
+
+    var Timer = {
+      totalSeconds: 0,
+      
+
+      start: function () {
+        var self = this;
+
+        this.interval = setInterval(function () {
+          self.totalSeconds += 1;
+
+          $("#mintimer").text(Numpad(Math.floor(self.totalSeconds / 60 % 60)));
+          $("#sectimer").text(Numpad(parseInt(self.totalSeconds % 60)));
+        }, 1000);
+      },
+
+      pause: function () {
+        clearInterval(this.interval);
+        delete this.interval;
+      },
+
+      resume: function () {
+        if (!this.interval) this.start();
+      },
+
+      stop: function () {
+        clearInterval(this.interval);
+      },
+
+      reset: function (){
+        this.totalSeconds = 0;
+        $("#mintimer").html("00");
+        $("#sectimer").html("00");
+
+      }
+    };
+
+    
+  function Numpad(val) {
+    var valString = val + "";
+    if (valString.length < 2) {
+      return "0" + valString;
+    } else {
+      return valString;
+    }
+  }
+
+
+
+
+
+    window.addEventListener('DOMContentLoaded', function () {
+
+      if ('MediaRecorder' in window) {
+        getMic.addEventListener('click', async function () {
+          getMic.disabled = true
+          try {
+            var stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: false
+            });
+            var mimeType = 'audio/webm';
+            let chunks = [];
+            var recorder = new MediaRecorder(stream, { type: mimeType });
+
+            recorder.addEventListener('dataavailable', function (event) {
+              if (typeof event.data === 'undefined') return;
+              if (event.data.size === 0) return;
+              chunks.push(event.data);
+            });
+
+
+            recordButton.removeAttribute('disabled');
+
+            recordButton.addEventListener('click', function () {
+              if (recorder.state === 'inactive') {
+                recorder.start();
+                Timer.start();
+                recordButton.innerText = 'Stop';
+                playPauseButton.removeAttribute('disabled');
+
+              } else {
+                recorder.stop();
+                Timer.stop();
+                recordButton.innerText = 'Record';
+                playPauseButton.setAttribute("disabled", "disabled")
+                resetButton.removeAttribute('disabled');
+
+              }
+            });
+
+            playPauseButton.addEventListener('click', function () {
+              if (recorder.state === 'recording') {
+                recorder.pause();
+                Timer.pause();
+                playPauseButton.innerText = 'Resume';
+              } else if (recorder.state === 'paused') {
+                recorder.resume();
+                Timer.resume();
+                playPauseButton.innerText = 'Pause';
+              }
+            });
+
+            resetButton.addEventListener('click', function () {
+              audio.setAttribute('src', '');
+              attachButton.setAttribute("disabled", "disabled")
+              Timer.reset();
+            })
+
+            recorder.addEventListener('stop', function () {
+              var recording = new Blob(chunks, {
+                type: mimeType
+              });
+              chunks = [];
+              renderRecording(recording);
+            });
+
+          } catch {
+            renderError(
+              'You denied access to the microphone so this demo will not work.'
+            );
+          }
+        });
+      } else {
+        renderError(
+          "Sorry, your browser doesn't support the MediaRecorder API, so this demo will not work."
+        );
+      }
+    });
+
+    function renderError(message) {
+      var main = document.querySelector('main');
+      main.innerHTML = `<div class="error"><p>${message}</p></div>`;
+    }
+
+    function renderRecording(blob) {
+      var blobUrl = URL.createObjectURL(blob);
+      audio.setAttribute('src', blobUrl);
+      audio.setAttribute('controls', 'controls');
+      attachButton.removeAttribute('disabled');
+      attachButton.addEventListener("click", function () { attachAudioRecording(blob) }, false);
+      getAudioDuration()
+    }
+
+
+    function attachAudioRecording(blob) {
+      recordButton.setAttribute("disabled", "disabled")
+      resetButton.setAttribute("disabled", "disabled")
+      console.log(blob)
+    }
+
+    function getAudioDuration(){
+      audio.onloadedmetadata = function() {
+        // it should already be available here
+        
+        // handle chrome's bug
+        if (audio.duration === Infinity) {
+          // set it to bigger than the actual duration
+          audio.currentTime = 10000000*Math.random();
+          audio.ontimeupdate = function() {
+            this.ontimeupdate = () => {
+              return;
+            }
+            $("#mintimer").text(Numpad(Math.floor(audio.duration / 60 % 60)));
+            $("#sectimer").text(Numpad(parseInt(audio.duration % 60)));
+            audio.currentTime = 0;
+          }
+        }
+      }  
+    }
+
+
+
+
+  </script>
+</body>
+
+</html>

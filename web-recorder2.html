@@ -1,0 +1,69 @@
+<!doctype html>
+
+<head>
+	<title>MediaRecorder examples - Record live audio</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<link rel="stylesheet" href="styles.css" type="text/css">
+	<script src="record-live-audio.js"></script>
+</head>
+
+<body>
+	<header>
+		<h1><a href="index.html">MediaRecorder examples</a></h1>
+		<p>Record live audio</p>
+	</header>
+	<main>
+		<p><button id="record" disabled>Record audio</button> <button id="stop" disabled>Stop</button></p>
+		<p><audio id="audio" controls></audio></p>
+	</main>
+
+
+	<script>
+		var recordButton, stopButton, recorder;
+
+		window.onload = function () {
+			recordButton = document.getElementById('record');
+			stopButton = document.getElementById('stop');
+
+			// get audio stream from user's mic
+			navigator.mediaDevices.getUserMedia({
+				audio: true
+			})
+				.then(function (stream) {
+					recordButton.disabled = false;
+					recordButton.addEventListener('click', startRecording);
+					stopButton.addEventListener('click', stopRecording);
+					recorder = new MediaRecorder(stream);
+
+					// listen to dataavailable, which gets triggered whenever we have
+					// an audio blob available
+					recorder.addEventListener('dataavailable', onRecordingReady);
+				});
+		};
+
+		function startRecording() {
+			recordButton.disabled = true;
+			stopButton.disabled = false;
+
+			recorder.start();
+		}
+
+		function stopRecording() {
+			recordButton.disabled = false;
+			stopButton.disabled = true;
+
+			// Stopping the recorder will eventually trigger the `dataavailable` event and we can complete the recording process
+			recorder.stop();
+		}
+
+		function onRecordingReady(e) {
+			var audio = document.getElementById('audio');
+			var filename = new Date().toISOString();
+			// e.data contains a blob representing the recording
+			audio.src = URL.createObjectURL(e.data);
+			// audio.play();
+		}
+	</script>
+</body>
