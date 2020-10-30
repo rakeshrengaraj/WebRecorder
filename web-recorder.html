@@ -197,6 +197,7 @@
             resetButton.addEventListener('click', function () {
               audio.setAttribute('src', '');
               attachButton.setAttribute("disabled", "disabled")
+              recordButton.removeAttribute('disabled');
               Timer.reset();
             })
 
@@ -205,6 +206,7 @@
                 type: mimeType
               });
               chunks = [];
+              recordButton.setAttribute("disabled", "disabled")
               renderRecording(recording);
             });
 
